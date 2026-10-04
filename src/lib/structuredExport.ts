@@ -6,8 +6,12 @@ export interface OccupationalRecordRow {
   workerName: string;
   timestamp: string;
   shift: string;
-  doseEstimate: string; // e.g. "2.1 ppm·h" or "0.0 ppm·h"
+  doseEstimate: string; // e.g. "2.10 ppm·h"
+  uncertainty: string; // e.g. "±0.15 ppm·h"
+  estimatedRange: string; // e.g. "1.95 – 2.25 ppm·h"
   twaEstimate: string; // e.g. "0.26 ppm"
+  calibrationRange: string; // "WITHIN VALIDATED RANGE" | "OUTSIDE VALIDATED RANGE"
+  calibrationVersion: string;
   badgeId: string;
   expiryStatus: string; // "VALID" | "EXPIRED" | "EXPIRING SOON" | "UNKNOWN"
   expiryDate: string;
@@ -25,8 +29,15 @@ export function compileOccupationalHealthRecords(
     const matchedWorker = workers.find((w) => w.id === m.workerId);
 
     const workerName = matchedWorker?.name || (m.workerId === "W-102" ? "Arun Kumar" : `Worker (${m.workerId})`);
+    const doseNum = m.exposure !== null && m.exposure !== undefined ? m.exposure : 0;
     const doseVal = m.exposure !== null && m.exposure !== undefined ? `${m.exposure.toFixed(2)} ppm·h` : "N/A (Pending)";
+    const uncVal = m.uncertainty || "±0.15 ppm·h";
+    const lower = m.lowerBound !== undefined ? m.lowerBound : Math.max(0, doseNum - 0.15);
+    const upper = m.upperBound !== undefined ? m.upperBound : doseNum + 0.15;
+    const rangeVal = `${lower.toFixed(2)} – ${upper.toFixed(2)} ppm·h`;
     const twaVal = m.twaPpm !== undefined ? `${m.twaPpm.toFixed(2)} ppm` : m.exposure ? `${(m.exposure / 8).toFixed(2)} ppm` : "0.00 ppm";
+    const calRange = m.calibrationRange || "WITHIN VALIDATED RANGE";
+    const calVer = m.calibrationVersion || m.calibration || "SentraBand PCHIP + CIEDE2000 LUT Model";
 
     // Determine Expiry Status
     let expiryStatus = matchedBadge?.status || "VALID";
@@ -50,7 +61,11 @@ export function compileOccupationalHealthRecords(
       timestamp: m.timestamp || m.time || new Date().toISOString(),
       shift: m.shift || "General Shift",
       doseEstimate: doseVal,
+      uncertainty: uncVal,
+      estimatedRange: rangeVal,
       twaEstimate: twaVal,
+      calibrationRange: calRange,
+      calibrationVersion: calVer,
       badgeId: m.badgeId || "N/A",
       expiryStatus: expiryStatus.toUpperCase(),
       expiryDate,
@@ -81,7 +96,11 @@ export function exportOccupationalHealthCSV(
     "Timestamp",
     "Shift",
     "Dose Estimate (ppm·h)",
+    "Uncertainty",
+    "Estimated Range (ppm·h)",
     "8h TWA (ppm)",
+    "Calibration Range Status",
+    "Calibration Version",
     "Badge ID",
     "Badge Expiry Status",
     "Badge Expiry Date",
@@ -98,7 +117,11 @@ export function exportOccupationalHealthCSV(
         `"${r.timestamp}"`,
         `"${r.shift}"`,
         `"${r.doseEstimate}"`,
+        `"${r.uncertainty}"`,
+        `"${r.estimatedRange}"`,
         `"${r.twaEstimate}"`,
+        `"${r.calibrationRange}"`,
+        `"${r.calibrationVersion}"`,
         `"${r.badgeId}"`,
         `"${r.expiryStatus}"`,
         `"${r.expiryDate}"`,

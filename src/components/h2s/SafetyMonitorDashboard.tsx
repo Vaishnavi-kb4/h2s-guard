@@ -31,22 +31,53 @@ export function SafetyMonitorDashboard() {
   const [regWizardOpen, setRegWizardOpen] = React.useState(false);
   const t = translations[language] || translations.English;
 
+  // Combine registered worker accounts with workers array from PostgreSQL
+  const allWorkers = React.useMemo(() => {
+    const workerUsers = registeredUsers.filter((u) => u.role === "worker");
+    const map = new Map<string, any>();
+
+    // 1. Add PostgreSQL workers
+    workers.forEach((w) => {
+      const badgeObj = badges.find((b) => b.id === w.badgeId);
+      const shelfLife = evaluateBadgeShelfLife(badgeObj?.expiry);
+      map.set(w.id, {
+        ...w,
+        shelfLife,
+      });
+    });
+
+    // 2. Add or update with registered worker accounts
+    workerUsers.forEach((u) => {
+      const userMeas = measurements.filter((m) => m.workerId === u.id);
+      const latest = userMeas.length > 0 ? userMeas[0] : null;
+      const badgeObj = badges.find((b) => b.id === u.badgeId);
+      const shelfLife = evaluateBadgeShelfLife(badgeObj?.expiry);
+
+      const existing = map.get(u.id);
+      map.set(u.id, {
+        id: u.id,
+        name: u.name || existing?.name || u.id,
+        shift: u.shift || existing?.shift || "Morning Shift",
+        badgeId: u.badgeId || existing?.badgeId || "B-00101",
+        batchId: u.batchId || existing?.batchId || "BATCH-01",
+        latestExposure: latest?.exposure ?? existing?.latestExposure ?? 0,
+        lastMeasurement: latest?.time || existing?.lastMeasurement || "Registered worker",
+        status: "Active",
+        shelfLife,
+      });
+    });
+
+    return Array.from(map.values());
+  }, [workers, registeredUsers, measurements, badges]);
+
   // Dynamic metrics calculations (0 if empty)
   const totalRecords = measurements.length;
   const validMeasurements = measurements.filter((m) => m.status === "VALID").length;
   const reviewRequired = measurements.filter((m) => m.status === "REVIEW REQUIRED" || m.status === "INVALID").length;
-  const activeWorkersCount = registeredUsers.length > 0 ? registeredUsers.length : workers.length;
+  const activeWorkersCount = allWorkers.length;
 
   // Badge Shelf Life Validity calculations
-  const allBadgeList = badges.length > 0 ? badges : [
-    { id: "B-38229", batch: "BATCH-01", workerId: "W-652", manufactured: "12 Jan 2026", expiry: "12 Jan 2027", calibration: "CAL-03", status: "VALID", measurements: 24 },
-    { id: "B-91882", batch: "BATCH-01", workerId: "W-632", manufactured: "12 Jan 2026", expiry: "12 Jan 2027", calibration: "CAL-03", status: "VALID", measurements: 19 },
-    { id: "B-37435", batch: "BATCH-01", workerId: "W-437", manufactured: "12 Jan 2026", expiry: "12 Jan 2027", calibration: "CAL-03", status: "VALID", measurements: 12 },
-    { id: "B-38854", batch: "BATCH-01", workerId: "W-457", manufactured: "12 Jan 2026", expiry: "12 Jan 2027", calibration: "CAL-03", status: "VALID", measurements: 15 },
-    { id: "B-50820", batch: "BATCH-01", workerId: "W-827", manufactured: "12 Jan 2026", expiry: "12 Jan 2027", calibration: "CAL-03", status: "VALID", measurements: 8 },
-    { id: "B-00125", batch: "BATCH-07", workerId: "W-102", manufactured: "01 Feb 2026", expiry: "01 Feb 2027", calibration: "CAL-03", status: "VALID", measurements: 18 },
-    { id: "B-51060", batch: "BATCH-08", workerId: "W-714", manufactured: "08 Sep 2025", expiry: "28 Sep 2026", calibration: "CAL-03", status: "EXPIRING SOON", measurements: 22 },
-  ];
+  const allBadgeList = badges;
 
   const validBadgeCount = allBadgeList.filter((b) => evaluateBadgeShelfLife(b.expiry) === "VALID").length;
   const expiringSoonCount = allBadgeList.filter((b) => evaluateBadgeShelfLife(b.expiry) === "EXPIRING SOON").length;
@@ -257,12 +288,12 @@ export function SafetyMonitorDashboard() {
           }
         />
 
-        {registeredUsers.length === 0 && workers.length === 0 ? (
+        {allWorkers.length === 0 ? (
           <div className="p-12 text-center">
             <HardHat className="mx-auto size-12 text-slate-400 mb-3" />
-            <h4 className="font-bold text-base">No Users Registered Yet</h4>
+            <h4 className="font-bold text-base">No Workers Found</h4>
             <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
-              Click the "Register Account" button in the top navigation or switch to Mobile View to create user details.
+              Click the "+ Register New Worker" button above to add workers to your HSE Account.
             </p>
           </div>
         ) : (
@@ -278,33 +309,7 @@ export function SafetyMonitorDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {(registeredUsers.length > 0
-                  ? registeredUsers.map((u) => {
-                    const userMeas = measurements.filter((m) => m.workerId === u.id);
-                    const latest = userMeas.length > 0 ? userMeas[0] : null;
-                    const badgeObj = allBadgeList.find((b) => b.id === u.badgeId);
-                    const shelfLife = evaluateBadgeShelfLife(badgeObj?.expiry);
-
-                    return {
-                      id: u.id,
-                      name: u.name,
-                      shift: u.shift,
-                      badgeId: u.badgeId,
-                      batchId: u.batchId,
-                      latestExposure: latest?.exposure ?? 0,
-                      shelfLife,
-                      status: u.role === "worker" ? "Active" : "Monitor",
-                    };
-                  })
-                  : workers.map((w) => {
-                    const badgeObj = allBadgeList.find((b) => b.id === w.badgeId);
-                    const shelfLife = evaluateBadgeShelfLife(badgeObj?.expiry);
-                    return {
-                      ...w,
-                      shelfLife,
-                    };
-                  })
-                ).map((w: any) => {
+                {allWorkers.map((w: any) => {
                   const expVal = w.latestExposure ?? 0;
                   const statusToDisplay =
                     expVal > 20.0

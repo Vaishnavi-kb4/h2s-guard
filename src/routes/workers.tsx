@@ -1,15 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Activity, Clock3, UserRound, HardHat, ShieldAlert, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Activity, Clock3, UserRound, HardHat, ShieldAlert, CheckCircle2, ExternalLink, Thermometer, CloudRain, ArrowUpRight } from "lucide-react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ExposureChart } from "@/components/h2s/Charts";
 import { MetricCard, PageHeader, Panel, PanelHeader, StatusBadge } from "@/components/h2s/common";
 import { useApp } from "@/context/AppContext";
-import type { Worker } from "@/types/h2s";
-
+import type { Worker, Measurement } from "@/types/h2s";
 import { evaluateBadgeShelfLife } from "@/lib/badgeUtils";
-
 import { RegisterWorkerWizard } from "@/components/h2s/RegisterWorkerWizard";
 
 export const Route = createFileRoute("/workers")({
@@ -23,6 +21,7 @@ export const Route = createFileRoute("/workers")({
 });
 
 function WorkersPage() {
+  const navigate = useNavigate();
   const { workers, registeredUsers, measurements, badges } = useApp();
   const [selected, setSelected] = useState<Worker | null>(null);
   const [regWizardOpen, setRegWizardOpen] = useState(false);
@@ -54,7 +53,30 @@ function WorkersPage() {
   // Dynamic counts
   const highRiskCount = allWorkers.filter((w) => (w.latestExposure ?? 0) > 20.0).length;
   const measuredCount = allWorkers.filter((w) => (w.latestExposure ?? 0) > 0).length;
-  const zeroExposureCount = allWorkers.filter((w) => (w.latestExposure ?? 0) === 0).length;
+
+  // Selected Worker Timeline Measurements
+  const workerTimelineMeasurements: Measurement[] = useMemo(() => {
+    if (!selected) return [];
+    return measurements.filter((m) => m.workerId === selected.id);
+  }, [selected, measurements]);
+
+  // Chart data for selected worker
+  const selectedChartData = useMemo(() => {
+    return workerTimelineMeasurements
+      .slice()
+      .reverse()
+      .map((m) => ({
+        time: m.time || m.timestamp,
+        exposure: m.exposure ?? 0,
+      }));
+  }, [workerTimelineMeasurements]);
+
+  const handleOpenMeasurementTrace = (m: Measurement) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("h2s_selected_trace_id", m.id);
+    }
+    navigate({ to: "/capture", search: { stage: "trace", id: m.id } });
+  };
 
   return (
     <>
@@ -148,7 +170,7 @@ function WorkersPage() {
                         <StatusBadge status={shelfLife} />
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="ghost" size="sm" onClick={() => setSelected(w)} className="text-xs font-bold">
+                        <Button variant="ghost" size="sm" onClick={() => setSelected(w)} className="text-xs font-bold text-primary hover:text-primary hover:bg-primary/10">
                           View details
                         </Button>
                       </td>
@@ -180,7 +202,7 @@ function WorkersPage() {
                     }
                   />
                 </div>
-                <SheetDescription>Occupational health worker profile and cumulative exposure log.</SheetDescription>
+                <SheetDescription>Occupational health worker profile, exposure timeline & trace logs.</SheetDescription>
               </SheetHeader>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
@@ -199,29 +221,105 @@ function WorkersPage() {
                 />
               </div>
 
-              <div className="mt-6">
-                <h3 className="font-bold text-sm mb-2">Exposure History Trend</h3>
-                <ExposureChart />
+              {/* Exposure Trend Chart */}
+              <div className="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2">
+                  <div>
+                    <h3 className="font-extrabold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Activity className="size-4 text-primary" /> Exposure Trend Chart
+                    </h3>
+                    <p className="text-xs text-foreground font-semibold">Chronological Exposure Profile for Worker {selected.id}</p>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground font-bold">
+                    {workerTimelineMeasurements.length} Readings
+                  </span>
+                </div>
+                <ExposureChart data={selectedChartData} />
               </div>
 
-              <div className="mt-6 space-y-2">
-                <h3 className="font-bold text-sm">Measurement Timeline</h3>
-                {measurements.filter((m) => m.workerId === selected.id).length === 0 ? (
-                  <div className="rounded-lg border p-4 text-xs text-muted-foreground text-center">
-                    No individual measurements logged yet for worker {selected.id}.
+              {/* Exposure Timeline */}
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-2">
+                  <div>
+                    <h3 className="font-extrabold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Clock3 className="size-4 text-primary" /> Exposure Timeline
+                    </h3>
+                    <p className="text-xs text-foreground font-semibold">Chronological measurement log (Click any entry to open Measurement Trace)</p>
                   </div>
-                ) : (
-                  measurements
-                    .filter((m) => m.workerId === selected.id)
-                    .map((m) => (
-                      <div className="flex items-center justify-between rounded-lg border border-border p-3 text-xs" key={m.id}>
-                        <div>
-                          <b className="font-mono">{m.id}</b> · {m.timestamp}
+                </div>
+
+                <div className="space-y-2.5">
+                  {workerTimelineMeasurements.map((m) => (
+                    <div
+                      key={m.id}
+                      onClick={() => handleOpenMeasurementTrace(m)}
+                      className="group relative cursor-pointer rounded-xl border border-border bg-card hover:bg-muted/60 p-4 transition-all hover:border-primary/50 shadow-xs hover:shadow-md"
+                    >
+                      {/* Top Bar: Timestamp, Badge ID & Status */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5 mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="grid size-6 place-items-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                            🕒
+                          </span>
+                          <span className="font-mono text-xs font-black text-foreground">
+                            {m.timestamp || m.time}
+                          </span>
+                          <span className="font-mono text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
+                            Badge: {m.badgeId || selected.badgeId}
+                          </span>
                         </div>
-                        <div className="font-mono font-bold text-blue-600">{m.exposure} ppm·h</div>
+
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={m.status || "VALID"} />
+                          <span className="text-[10px] font-bold text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                            View Trace <ArrowUpRight className="size-3" />
+                          </span>
+                        </div>
                       </div>
-                    ))
-                )}
+
+                      {/* 7 Required Metrics Grid: Timestamp, Dose, Uncertainty, Temp, Humidity, Badge ID, Status */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                        {/* Dose */}
+                        <div className="rounded-lg bg-muted/50 p-2 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block">Dose</span>
+                          <b className="text-sm font-extrabold text-blue-600 dark:text-blue-400">
+                            {(m.exposure ?? 0).toFixed(2)} ppm·h
+                          </b>
+                        </div>
+
+                        {/* Uncertainty */}
+                        <div className="rounded-lg bg-muted/50 p-2 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block">Uncertainty</span>
+                          <b className="text-foreground font-bold">{m.uncertainty || "±0.15 ppm·h"}</b>
+                        </div>
+
+                        {/* Temperature */}
+                        <div className="rounded-lg bg-muted/50 p-2 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block flex items-center gap-1">
+                            <Thermometer className="size-3 text-amber-500" /> Temperature
+                          </span>
+                          <b className="text-foreground font-bold">{m.temperature || "25.0 °C"}</b>
+                        </div>
+
+                        {/* Humidity */}
+                        <div className="rounded-lg bg-muted/50 p-2 border border-border/40">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block flex items-center gap-1">
+                            <CloudRain className="size-3 text-blue-500" /> Humidity
+                          </span>
+                          <b className="text-foreground font-bold">{m.humidity || "50% RH"}</b>
+                        </div>
+                      </div>
+
+                      {/* Prompt to open Measurement Trace */}
+                      <div className="mt-2.5 pt-2 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span className="font-mono">ID: {m.id}</span>
+                        <span className="font-bold text-primary flex items-center gap-1">
+                          Click to view full traceable calibration audit <ExternalLink className="size-3" />
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}

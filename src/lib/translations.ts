@@ -59,6 +59,42 @@ export interface Translations {
   shelfLifeStatus: string;
   loadDemo: string;
   resetData: string;
+  activeShiftSession: string;
+  shiftDuration: string;
+  currentCumulativeDose: string;
+  averageTwa: string;
+  closeShift: string;
+  preShiftScanTitle: string;
+  postShiftScanTitle: string;
+  startOfShift: string;
+  endOfShift: string;
+  qualityCheck: string;
+  exposureEstimate: string;
+  personalHistory: string;
+  myShift: string;
+  goodMorning: string;
+  assignedDosimeterNotice: string;
+  todaysAssignment: string;
+  workerIdLabel: string;
+  assignedBadgeLabel: string;
+  shiftLabel: string;
+  badgeShelfLifeLabel: string;
+  validReadings: string;
+  multilingualHseAssistant: string;
+  step1of2: string;
+  step2of2: string;
+  startPreShiftCheck: string;
+  recapturePreShiftScan: string;
+  startPostShiftScan: string;
+  requiresPreShiftBaselineFirst: string;
+  preShiftInstruction: string;
+  postShiftInstruction: string;
+  noRecordsSaved: string;
+  noRecordsDesc: string;
+  interactiveAiSafetyBot: string;
+  onlineActive: string;
+  readyForScan: string;
+  step1RequiredFirst: string;
 }
 
 export const translations: Record<SupportedLanguage, Translations> = {
@@ -121,6 +157,42 @@ export const translations: Record<SupportedLanguage, Translations> = {
     shelfLifeStatus: "Shelf Life Status",
     loadDemo: "Load Demo Data",
     resetData: "Reset Demo Data",
+    activeShiftSession: "Active Shift Session",
+    shiftDuration: "Shift Duration",
+    currentCumulativeDose: "Current Cumulative Dose",
+    averageTwa: "Average / TWA",
+    closeShift: "Close Shift & Generate Report",
+    preShiftScanTitle: "Pre-Shift Scan",
+    postShiftScanTitle: "Post-Shift Scan",
+    startOfShift: "Start of Work Shift",
+    endOfShift: "End of Work Shift",
+    qualityCheck: "Quality Check",
+    exposureEstimate: "Exposure Quantification",
+    personalHistory: "Personal Exposure Trace History",
+    myShift: "My Shift",
+    goodMorning: "Good Morning",
+    assignedDosimeterNotice: "Assigned shift dosimeter active & ready for pre-shift scan.",
+    todaysAssignment: "Today's Assignment",
+    workerIdLabel: "Worker ID",
+    assignedBadgeLabel: "Assigned Badge",
+    shiftLabel: "Shift",
+    badgeShelfLifeLabel: "Badge Shelf-Life",
+    validReadings: "Valid Readings",
+    multilingualHseAssistant: "Multilingual HSE Assistant",
+    step1of2: "Step 1 of 2",
+    step2of2: "Step 2 of 2",
+    startPreShiftCheck: "START PRE-SHIFT CHECK",
+    recapturePreShiftScan: "Recapture Pre-Shift Scan",
+    startPostShiftScan: "Start Post-Shift Scan",
+    requiresPreShiftBaselineFirst: "Requires Pre-Shift Baseline First",
+    preShiftInstruction: "Please scan your dosimeter badge before starting your work shift.",
+    postShiftInstruction: "Please scan your dosimeter badge after completing your work shift.",
+    noRecordsSaved: "No shift exposure records saved yet",
+    noRecordsDesc: "Record Pre-Shift and Post-Shift captures to log exposure.",
+    interactiveAiSafetyBot: "Interactive AI Safety Bot",
+    onlineActive: "Online & Active",
+    readyForScan: "Ready for Scan",
+    step1RequiredFirst: "Step 1 Required First",
   },
   தமிழ்: {
     appName: "H₂S GUARD",
@@ -181,6 +253,42 @@ export const translations: Record<SupportedLanguage, Translations> = {
     shelfLifeStatus: "ஆயுட்காலம் நிலை",
     loadDemo: "டெமோ தரவை ஏற்றவும்",
     resetData: "தரவை மீட்டமை",
+    activeShiftSession: "செயலில் உள்ள ஷிப்ட் அமர்வு",
+    shiftDuration: "ஷிப்ட் காலம்",
+    currentCumulativeDose: "தற்போது திரட்டப்பட்ட அளவு",
+    averageTwa: "சராசரி / TWA",
+    closeShift: "ஷிப்ட் முடித்து அறிக்கை உருவாக்கு",
+    preShiftScanTitle: "ஷிப்ட் முன் ஸ்கேன்",
+    postShiftScanTitle: "ஷிப்ட் பின் ஸ்கேன்",
+    startOfShift: "பணி ஷிப்ட் தொடக்கம்",
+    endOfShift: "பணி ஷிப்ட் முடிவு",
+    qualityCheck: "தர பரிசோதனை",
+    exposureEstimate: "வெளிப்பாடு அளவீடு",
+    personalHistory: "தனிப்பட்ட வெளிப்பாடு வரலாறு",
+    myShift: "என் ஷிப்ட்",
+    goodMorning: "காலை வணக்கம்",
+    assignedDosimeterNotice: "ஒதுக்கப்பட்ட ஷிப்ட் டோசிமீட்டர் தயார் நிலையில் உள்ளது.",
+    todaysAssignment: "இன்றைய பணி ஒதுக்கீடு",
+    workerIdLabel: "பணியாளர் ஐடி",
+    assignedBadgeLabel: "ஒதுக்கப்பட்ட பேட்ஜ்",
+    shiftLabel: "ஷிப்ட்",
+    badgeShelfLifeLabel: "பேட்ஜ் ஆயுட்காலம்",
+    validReadings: "செல்லுபடியாகும் பதிவுகள்",
+    multilingualHseAssistant: "பன்மொழி பாதுகாப்பு உதவியாளர்",
+    step1of2: "படி 1 / 2",
+    step2of2: "படி 2 / 2",
+    startPreShiftCheck: "ஷிப்ட் முன் ஸ்கேன் தொடங்கு",
+    recapturePreShiftScan: "மீண்டும் ஷிப்ட் முன் ஸ்கேன் செய்",
+    startPostShiftScan: "ஷிப்ட் பின் ஸ்கேன் தொடங்கு",
+    requiresPreShiftBaselineFirst: "முதலில் ஷிப்ட் முன் ஸ்கேன் தேவை",
+    preShiftInstruction: "பணி ஷிப்ட் தொடங்குவதற்கு முன் உங்கள் பேட்ஜை ஸ்கேன் செய்யவும்.",
+    postShiftInstruction: "பணி ஷிப்ட் முடிந்த பின் உங்கள் பேட்ஜை ஸ்கேன் செய்யவும்.",
+    noRecordsSaved: "இதுவரை பதிவுகள் எதுவும் சேமிக்கப்படவில்லை",
+    noRecordsDesc: "பதிவுகளை உருவாக்க ஷிப்ட் முன் மற்றும் பின் ஸ்கேன் செய்யவும்.",
+    interactiveAiSafetyBot: "பாதுகாப்பு AI பாட்",
+    onlineActive: "செயலில் உள்ளது",
+    readyForScan: "ஸ்கேனிற்கு தயார்",
+    step1RequiredFirst: "படி 1 முதலில் தேவை",
   },
   हिंदी: {
     appName: "H₂S GUARD",
@@ -241,6 +349,42 @@ export const translations: Record<SupportedLanguage, Translations> = {
     shelfLifeStatus: "शेल्फ लाइफ स्थिति",
     loadDemo: "डेमो डेटा लोड करें",
     resetData: "डेटा रीसेट करें",
+    activeShiftSession: "सक्रिय शिफ्ट सत्र",
+    shiftDuration: "शिफ्ट की अवधि",
+    currentCumulativeDose: "वर्तमान संचयी खुराक",
+    averageTwa: "औसत / TWA",
+    closeShift: "शिफ्ट बंद करें और रिपोर्ट जनरेट करें",
+    preShiftScanTitle: "शिफ्ट पूर्व स्कैन",
+    postShiftScanTitle: "शिफ्ट पश्चात स्कैन",
+    startOfShift: "कार्य शिफ्ट की शुरुआत",
+    endOfShift: "कार्य शिफ्ट का अंत",
+    qualityCheck: "गुणवत्ता जांच",
+    exposureEstimate: "एक्सपोजर मूल्यांकन",
+    personalHistory: "व्यक्तिगत एक्सपोजर इतिहास",
+    myShift: "मेरी शिफ्ट",
+    goodMorning: "शुभ प्रभात",
+    assignedDosimeterNotice: "आवंटित डोसीमीटर सक्रिय है और स्कैन के लिए तैयार है।",
+    todaysAssignment: "आज का असाइनमेंट",
+    workerIdLabel: "कर्मचारी आईडी",
+    assignedBadgeLabel: "आवंटित बैज",
+    shiftLabel: "शिफ्ट",
+    badgeShelfLifeLabel: "बैज शेल्फ लाइफ",
+    validReadings: "मान्य रीडिंग",
+    multilingualHseAssistant: "बहुभाषी सुरक्षा सहायक",
+    step1of2: "चरण 1 / 2",
+    step2of2: "चरण 2 / 2",
+    startPreShiftCheck: "शिफ्ट पूर्व जांच शुरू करें",
+    recapturePreShiftScan: "पुनः शिफ्ट पूर्व स्कैन करें",
+    startPostShiftScan: "शिफ्ट पश्चात स्कैन शुरू करें",
+    requiresPreShiftBaselineFirst: "पहले शिफ्ट पूर्व स्कैन आवश्यक है",
+    preShiftInstruction: "कार्य शिफ्ट शुरू करने से पहले अपने बैज को स्कैन करें।",
+    postShiftInstruction: "कार्य शिफ्ट पूरी करने के बाद अपने बैज को स्कैन करें।",
+    noRecordsSaved: "अभी तक कोई एक्सपोजर रिकॉर्ड सहेजा नहीं गया है",
+    noRecordsDesc: "रिकॉर्ड बनाने के लिए शिफ्ट पूर्व और पश्चात स्कैन करें।",
+    interactiveAiSafetyBot: "सुरक्षा एआई बोट",
+    onlineActive: "ऑनलाइन और सक्रिय",
+    readyForScan: "स्कैन के लिए तैयार",
+    step1RequiredFirst: "चरण 1 पहले आवश्यक है",
   },
   ಕನ್ನಡ: {
     appName: "H₂S GUARD",
@@ -301,6 +445,42 @@ export const translations: Record<SupportedLanguage, Translations> = {
     shelfLifeStatus: "ಶೆಲ್ಫ್ ಆಯುಷ್ಯದ ಸ್ಥಿತಿ",
     loadDemo: "ಡೆಮೊ ಡೇಟಾ ಲೋಡ್ ಮಾಡಿ",
     resetData: "ಡೇಟಾ ಮರುಹೊಂದಿಸಿ",
+    activeShiftSession: "ಸಕ್ರಿಯ ಶಿಫ್ಟ್ ಸೆಷನ್",
+    shiftDuration: "ಶಿಫ್ಟ್ ಅವಧಿ",
+    currentCumulativeDose: "ಪ್ರಸ್ತುತ ಸಂಚಿತ ಡೋಸ್",
+    averageTwa: "ಸರಾಸರಿ / TWA",
+    closeShift: "ಶಿಫ್ಟ್ ಮುಕ್ತಾಯಗೊಳಿಸಿ ವರದಿ ರಚಿಸಿ",
+    preShiftScanTitle: "ಶಿಫ್ಟ್ ಪೂರ್ವ ಸ್ಕ್ಯಾನ್",
+    postShiftScanTitle: "ಶಿಫ್ಟ್ ನಂತರದ ಸ್ಕ್ಯಾನ್",
+    startOfShift: "ಕೆಲಸದ ಶಿಫ್ಟ್ ಪ್ರಾರಂಭ",
+    endOfShift: "ಕೆಲಸದ ಶಿಫ್ಟ್ ಅಂತ್ಯ",
+    qualityCheck: "ಗುಣಮಟ್ಟದ ಪರಿಶೀಲನೆ",
+    exposureEstimate: "ಎಕ್ಸ್‌ಪೋಸರ್ ಮೌಲ್ಯಮಾಪನ",
+    personalHistory: "ವೈಯಕ್ತಿಕ ಎಕ್ಸ್‌ಪೋಸರ್ ಇತಿಹಾಸ",
+    myShift: "ನನ್ನ ಶಿಫ್ಟ್",
+    goodMorning: "ಶುಭೋದಯ",
+    assignedDosimeterNotice: "ನಿಯೋಜಿಸಲಾದ ಡೋಸಿಮೀಟರ್ ಸಕ್ರಿಯವಾಗಿದೆ ಮತ್ತು ಸ್ಕ್ಯಾನ್‌ಗೆ ಸಿದ್ಧವಾಗಿದೆ.",
+    todaysAssignment: "ಇಂದಿನ ಕೆಲಸದ ವಿವರ",
+    workerIdLabel: "ಕೆಲಸಗಾರರ ಐಡಿ",
+    assignedBadgeLabel: "ನಿಯೋಜಿಸಲಾದ ಬ್ಯಾಡ್ಜ್",
+    shiftLabel: "ಶಿಫ್ಟ್",
+    badgeShelfLifeLabel: "ಬ್ಯಾಡ್ಜ್ ಆಯುಷ್ಯ",
+    validReadings: "ಮಾನ್ಯ ಅಳತೆಗಳು",
+    multilingualHseAssistant: "ಬಹುಭಾಷಾ ಸುರಕ್ಷತಾ ಸಹಾಯಕ",
+    step1of2: "ಹಂತ 1 / 2",
+    step2of2: "ಹಂತ 2 / 2",
+    startPreShiftCheck: "ಶಿಫ್ಟ್ ಪೂರ್ವ ಸ್ಕ್ಯಾನ್ ಪ್ರಾರಂಭಿಸಿ",
+    recapturePreShiftScan: "ಮತ್ತೆ ಶಿಫ್ಟ್ ಪೂರ್ವ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ",
+    startPostShiftScan: "ಶಿಫ್ಟ್ ನಂತರದ ಸ್ಕ್ಯಾನ್ ಪ್ರಾರಂಭಿಸಿ",
+    requiresPreShiftBaselineFirst: "ಮೊದಲು ಶಿಫ್ಟ್ ಪೂರ್ವ ಸ್ಕ್ಯಾನ್ ಅಗತ್ಯವಿದೆ",
+    preShiftInstruction: "ಕೆಲಸ ಪ್ರಾರಂಭಿಸುವ ಮೊದಲು ನಿಮ್ಮ ಬ್ಯಾಡ್ಜ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ.",
+    postShiftInstruction: "ಕೆಲಸ ಮುಗಿದ ನಂತರ ನಿಮ್ಮ ಬ್ಯಾಡ್ಜ್ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ.",
+    noRecordsSaved: "ಇನ್ನೂ ಯಾವುದೇ ದಾಖಲೆಗಳನ್ನು ಉಳಿಸಲಾಗಿಲ್ಲ",
+    noRecordsDesc: "ದಾಖಲೆಗಳನ್ನು ರಚಿಸಲು ಶಿಫ್ಟ್ ಪೂರ್ವ ಮತ್ತು ನಂತರ ಸ್ಕ್ಯಾನ್ ಮಾಡಿ.",
+    interactiveAiSafetyBot: "ಸುರಕ್ಷತಾ ಎಐ ಬಾಟ್",
+    onlineActive: "ಆನ್‌ಲೈನ್ ಮತ್ತು ಸಕ್ರಿಯ",
+    readyForScan: "ಸ್ಕ್ಯಾನ್‌ಗೆ ಸಿದ್ಧವಾಗಿದೆ",
+    step1RequiredFirst: "ಮೊದಲು ಹಂತ 1 ಅಗತ್ಯವಿದೆ",
   },
   മലയാളം: {
     appName: "H₂S GUARD",
@@ -361,5 +541,41 @@ export const translations: Record<SupportedLanguage, Translations> = {
     shelfLifeStatus: "ഷെൽഫ് ലൈഫ് സ്റ്റാറ്റസ്",
     loadDemo: "ഡെമോ ഡാറ്റ ലോഡ് ചെയ്യുക",
     resetData: "ഡാറ്റ റീസെറ്റ് ചെയ്യുക",
+    activeShiftSession: "സജീവ ഷിഫ്റ്റ് സെഷൻ",
+    shiftDuration: "ഷിഫ്റ്റ് ദൈർഘ്യം",
+    currentCumulativeDose: "നിലവിലെ ശേഖരിച്ച ഡോസ്",
+    averageTwa: "ശരാശരി / TWA",
+    closeShift: "ഷിഫ്റ്റ് അവസാനിപ്പിച്ച് റിപ്പോർട്ട് ഉണ്ടാക്കുക",
+    preShiftScanTitle: "ഷിഫ്റ്റ് മുൻപുള്ള സ്കാൻ",
+    postShiftScanTitle: "ഷിഫ്റ്റ് ശേഷമുള്ള സ്കാൻ",
+    startOfShift: "ജോലി ഷിഫ്റ്റ് ആരംഭം",
+    endOfShift: "ജോലി ഷിഫ്റ്റ് അവസാനം",
+    qualityCheck: "ഗുണനിലവാര പരിശോധന",
+    exposureEstimate: "എക്സ്പോഷർ വിലയിരുത്തൽ",
+    personalHistory: "വ്യക്തിഗത എക്സ്പോഷർ ചരിത്രം",
+    myShift: "എന്റെ ഷിഫ്റ്റ്",
+    goodMorning: "സുപ്രഭാതം",
+    assignedDosimeterNotice: "അനുവദിച്ച ഡോസിമീറ്റർ സജീവവും സ്കാനിംഗിന് തയ്യാറുമാണ്.",
+    todaysAssignment: "ഇന്നത്തെ ജോലി",
+    workerIdLabel: "തൊഴിലാളി ഐഡി",
+    assignedBadgeLabel: "അനുവദിച്ച ബാഡ്ജ്",
+    shiftLabel: "ഷിഫ്റ്റ്",
+    badgeShelfLifeLabel: "ബാഡ്ജ് ആയുസ്സ്",
+    validReadings: "സാധുവായ അളവുകൾ",
+    multilingualHseAssistant: "ബഹുഭാഷാ സുരക്ഷാ സഹായി",
+    step1of2: "ഘട്ടം 1 / 2",
+    step2of2: "ഘട്ടം 2 / 2",
+    startPreShiftCheck: "ഷിഫ്റ്റ് മുൻപുള്ള സ്കാൻ ആരംഭിക്കുക",
+    recapturePreShiftScan: "വീണ്ടും ഷിഫ്റ്റ് മുൻപ് സ്കാൻ ചെയ്യുക",
+    startPostShiftScan: "ഷിഫ്റ്റ് ശേഷമുള്ള സ്കാൻ ആരംഭിക്കുക",
+    requiresPreShiftBaselineFirst: "ആദ്യം ഷിഫ്റ്റ് മുൻപുള്ള സ്കാൻ ആവശ്യമാണ്",
+    preShiftInstruction: "ജോലി ആരംഭിക്കുന്നതിന് മുൻപ് നിങ്ങളുടെ ബാഡ്ജ് സ്കാൻ ചെയ്യുക.",
+    postShiftInstruction: "ജോലി കഴിഞ്ഞ ശേഷം നിങ്ങളുടെ ബാഡ്ജ് സ്കാൻ ചെയ്യുക.",
+    noRecordsSaved: "ഇതുവരെ റെക്കോർഡുകളൊന്നും സേവ് ചെയ്തിട്ടില്ല",
+    noRecordsDesc: "റെക്കോർഡുകൾ ഉണ്ടാക്കാൻ ഷിഫ്റ്റ് മുൻപും ശേഷവും സ്കാൻ ചെയ്യുക.",
+    interactiveAiSafetyBot: "സുരക്ഷാ എഐ ബോട്ട്",
+    onlineActive: "ഓൺലൈനും സജീവവും",
+    readyForScan: "സ്കാനിംഗിന് തയ്യാറാണ്",
+    step1RequiredFirst: "ഘട്ടം 1 ആദ്യം ആവശ്യമാണ്",
   },
 };

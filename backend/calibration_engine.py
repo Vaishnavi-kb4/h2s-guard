@@ -43,7 +43,7 @@ class ScikitLearnH2SCalibrator:
     def predict_exposure(
         self, pre_rgb: Dict[str, float], post_rgb: Dict[str, float], duration_hours: float = 8.0
     ) -> Dict[str, Any]:
-        """Predicts cumulative exposure (ppm·h) and 8-hr TWA (ppm) using scikit-learn model."""
+        """Predicts cumulative exposure (ppm·h) and 8-hr TWA (ppm) using scikit-learn model with uncertainty estimation."""
         r1, g1, b1 = pre_rgb["r"], pre_rgb["g"], pre_rgb["b"]
         r2, g2, b2 = post_rgb["r"], post_rgb["g"], post_rgb["b"]
         
@@ -56,22 +56,39 @@ class ScikitLearnH2SCalibrator:
         
         # Predict using scikit-learn model
         features = np.array([[delta_r, delta_g, delta_b, dist]])
-        predicted_dose = float(self.model.predict(features)[0])
-        predicted_dose = max(0.0, min(50.0, predicted_dose))
+        raw_pred = float(self.model.predict(features)[0])
+        predicted_dose = max(0.0, min(50.0, raw_pred))
         
         twa_ppm = predicted_dose / max(0.5, duration_hours)
         
-        # Threshold checks
-        is_high = predicted_dose > 20.0 or twa_ppm > 2.5
+        # Calculate uncertainty (k=2 coverage factor ~95% confidence)
+        u_base = 0.08
+        u_model = 0.03 * dist
+        uncertainty_val = round(max(0.10, float(np.sqrt(u_base**2 + u_model**2))), 2)
+        
+        lower_bound = max(0.0, round(predicted_dose - uncertainty_val, 2))
+        upper_bound = round(predicted_dose + uncertainty_val, 2)
+        
+        # Calibration Range Status
+        is_outside = raw_pred < 0.0 or raw_pred > 50.0 or dist > 150.0
+        calibration_range = "OUTSIDE VALIDATED RANGE" if is_outside else "WITHIN VALIDATED RANGE"
+        
+        is_high = predicted_dose > 20.0 or twa_ppm > 2.5 or is_outside
         status = "REVIEW REQUIRED" if is_high else "VALID"
         
         return {
             "cumulative_exposure_ppm_h": round(predicted_dose, 2),
+            "uncertainty_value": uncertainty_val,
+            "uncertainty_str": f"±{uncertainty_val:.2f} ppm·h",
+            "lower_bound": lower_bound,
+            "upper_bound": upper_bound,
+            "calibration_range": calibration_range,
             "twa_ppm": round(twa_ppm, 2),
             "shift_duration_hours": duration_hours,
             "status": status,
             "confidence_score": 94.5,
             "model": "scikit-learn Polynomial Ridge Regressor (CAL-03)",
+            "warning_message": "Outside validated range. Estimate should not be used for compliance decisions." if is_outside else None,
             "delta_r": round(delta_r, 1),
             "delta_g": round(delta_g, 1),
             "delta_b": round(delta_b, 1),

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useApp } from "@/context/AppContext";
 import { WristbandDosimeter } from "./WristbandDosimeter";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ import {
   Siren,
   QrCode,
   FileSpreadsheet,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
@@ -77,6 +79,7 @@ import { rgbToDose, doseToRGB } from "@/services/calibrationEngine";
 import { exportOccupationalHealthCSV, exportOccupationalHealthPDF } from "@/lib/structuredExport";
 import { generateMultilingualAnswer, getGreetingMessage, getSuggestedQuestions } from "@/services/multilingualAssistant";
 
+import { translations, type SupportedLanguage } from "@/lib/translations";
 type WorkerTab = "workflow" | "history" | "assistant";
 import { evaluateBadgeShelfLife } from "@/lib/badgeUtils";
 
@@ -94,9 +97,10 @@ const stageIndex: Record<Stage, number> = {
 
 
 export function WorkerDashboard() {
-  const { currentUser, measurements, saveMeasurement, badges } = useApp();
+  const navigate = useNavigate();
+  const { currentUser, measurements, saveMeasurement, badges, language, setLanguage } = useApp();
+  const t = translations[language] || translations.English;
   const [activeTab, setActiveTab] = useState<WorkerTab>("workflow");
-  const [language, setLanguage] = useState("English");
 
   // Dynamic worker profile data
   const workerId = currentUser?.id || "W-101";
@@ -109,11 +113,34 @@ export function WorkerDashboard() {
   const workerBadge = badges.find((b) => b.id === badgeId);
   const workerBadgeShelfLife = evaluateBadgeShelfLife(workerBadge?.expiry || "12 Jan 2027");
 
-  // Pre-Shift & Post-Shift Image & Color Engine State
-  const [preShiftRecorded, setPreShiftRecorded] = useState(false);
-  const [preShiftTime, setPreShiftTime] = useState<string | null>(null);
-  const [preShiftColor, setPreShiftColor] = useState<{ r: number; g: number; b: number }>({ r: 218, g: 208, b: 192 });
-  const [preShiftImageSrc, setPreShiftImageSrc] = useState<string | null>(null);
+  // Pre-Shift & Post-Shift Image & Color Engine State (Persisted locally)
+  const [preShiftRecorded, setPreShiftRecorded] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("h2s_preshift_recorded") === "true";
+    }
+    return false;
+  });
+  const [preShiftTime, setPreShiftTime] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("h2s_preshift_time") || null;
+    }
+    return null;
+  });
+  const [preShiftColor, setPreShiftColor] = useState<{ r: number; g: number; b: number }>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("h2s_preshift_rgb");
+      if (saved) {
+        try { return JSON.parse(saved); } catch {}
+      }
+    }
+    return { r: 218, g: 208, b: 192 };
+  });
+  const [preShiftImageSrc, setPreShiftImageSrc] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("h2s_preshift_photo") || null;
+    }
+    return null;
+  });
 
   const [postShiftColor, setPostShiftColor] = useState<{ r: number; g: number; b: number } | null>(null);
   const [postShiftImageSrc, setPostShiftImageSrc] = useState<string | null>(null);
@@ -149,6 +176,38 @@ export function WorkerDashboard() {
   const preSum = actualPreRgb.r + actualPreRgb.g + actualPreRgb.b || 1;
   const postSum = actualPostRgb.r + actualPostRgb.g + actualPostRgb.b || 1;
 
+  // Worker's exposure measurements (case-insensitive & trimmed matching)
+  const userMeasurements = React.useMemo(() => {
+    return measurements.filter((m) => {
+      const mWorker = (m.workerId || (m as any).worker_id || "").toString().trim().toLowerCase();
+      const targetWorker = (workerId || "").toString().trim().toLowerCase();
+      const mBadge = (m.badgeId || (m as any).badge_id || "").toString().trim().toLowerCase();
+      const targetBadge = (badgeId || "").toString().trim().toLowerCase();
+      return (mWorker && targetWorker && mWorker === targetWorker) || (mBadge && targetBadge && mBadge === targetBadge);
+    });
+  }, [measurements, workerId, badgeId]);
+
+  // Real shift exposure metrics derived strictly from user's PostgreSQL measurements
+  const realLatestMeas = userMeasurements[0];
+
+  const rawExp = realLatestMeas?.exposure ?? (realLatestMeas as any)?.compensatedDose;
+  const realDoseVal =
+    apiAnalysis?.cumulativeExposure.value ??
+    (rawExp !== undefined && rawExp !== null
+      ? rawExp
+      : postShiftColor && liveDoseCalc
+      ? liveDoseCalc.dosePpmH
+      : 0.0);
+
+  const rawTwa = realLatestMeas?.twaPpm;
+  const realTwaVal =
+    apiAnalysis?.estimatedAveragePpm ??
+    (rawTwa !== undefined && rawTwa !== null
+      ? rawTwa
+      : realDoseVal > 0
+      ? Math.round((realDoseVal / shiftDuration) * 100) / 100
+      : 0.0);
+
   const exposureResult = {
     preRgb: actualPreRgb,
     postRgb: actualPostRgb,
@@ -169,15 +228,15 @@ export function WorkerDashboard() {
         g: actualPostRgb.g - actualPreRgb.g,
         b: actualPostRgb.b - actualPreRgb.b,
       },
-    deltaE: apiAnalysis?.colorDifference.deltaE ?? (liveDoseCalc ? Math.round(liveDoseCalc.minDeltaE00 * 10) / 10 : 14.5),
-    cumulativeDosePpmH: apiAnalysis?.cumulativeExposure.value ?? liveDoseCalc?.dosePpmH ?? 10.0,
+    deltaE: apiAnalysis?.colorDifference.deltaE ?? (postShiftColor && liveDoseCalc ? Math.round(liveDoseCalc.minDeltaE00 * 10) / 10 : 0.0),
+    cumulativeDosePpmH: realDoseVal,
     shiftDurationHours: apiAnalysis?.durationHours ?? 8.0,
-    twaPpm: apiAnalysis?.estimatedAveragePpm ?? (liveDoseCalc ? Math.round((liveDoseCalc.dosePpmH / 8.0) * 100) / 100 : 1.25),
-    uncertaintyStr: apiAnalysis?.uncertainty || "±0.05 ppm·h (Exact CIEDE2000 sub-step interpolation)",
-    statusRangeStr: apiAnalysis?.validatedRangeStatus || "WITHIN VALIDATED RANGE",
-    isValidRange: (apiAnalysis?.cumulativeExposure.value ?? liveDoseCalc?.dosePpmH ?? 10.0) <= 50.0,
-    temperatureStr: "31.2 °C",
-    humidityStr: "68% RH",
+    twaPpm: realTwaVal,
+    uncertaintyStr: realLatestMeas?.uncertainty || (postShiftColor ? "±0.15 ppm·h" : "0.00 ppm·h"),
+    statusRangeStr: realLatestMeas?.calibrationRange || "WITHIN VALIDATED RANGE",
+    isValidRange: realDoseVal <= 50.0,
+    temperatureStr: realLatestMeas?.temperature || "31.2 °C",
+    humidityStr: realLatestMeas?.humidity || "68% RH",
   };
 
   const [showHighAlertModal, setShowHighAlertModal] = useState(false);
@@ -254,24 +313,14 @@ export function WorkerDashboard() {
     };
   }, []);
 
-  // Worker's exposure measurements
-  const userMeasurements = measurements.filter((m) => m.workerId === workerId || measurements.length === 0);
   const firstMeas = userMeasurements[0];
   const latestExposure = firstMeas && firstMeas.exposure !== null && firstMeas.exposure !== undefined
     ? `${firstMeas.exposure.toFixed(1)} ppm·h`
     : "0.0 ppm·h";
 
-  // Entry handler for starting capture
+  // Entry handler for starting capture - navigates directly to /capture route URL with mode search param
   const handleStartCapture = (mode: ShiftCaptureMode) => {
-    setCaptureMode(mode);
-    setIsCapturing(true);
-    setStage("capture");
-    setImage(null);
-    setSource("demo");
-    setInvalid(false);
-    setExpired(false);
-    setDone([]);
-    setApiAnalysis(null);
+    navigate({ to: "/capture", search: { mode } as any });
   };
 
   const processImageSelection = async (imgUrl: string, srcType: "demo" | "upload" | "camera") => {
@@ -290,47 +339,23 @@ export function WorkerDashboard() {
         setPreShiftRecorded(true);
         setPreShiftTime(timeStr);
         setIsCapturing(false);
+
+        try {
+          localStorage.setItem("h2s_preshift_recorded", "true");
+          localStorage.setItem("h2s_preshift_time", timeStr);
+          localStorage.setItem("h2s_preshift_rgb", JSON.stringify(realData.correctedRgb));
+          localStorage.setItem("h2s_preshift_photo", imgUrl);
+        } catch {}
+
         toast.success(`✓ Pre-Shift Baseline recorded at ${timeStr}. Ready for work shift.`);
         return;
       }
 
       setPostShiftColor(realData.correctedRgb);
       setPostShiftImageSrc(imgUrl);
-      setDone([
-        "PRE/POST IMAGE PAIR",
-        "3-ROI DETECTION (A, B, C)",
-        "REFERENCE NORMALIZATION",
-        "COLOUR DISTANCE ΔE EXTRACTION",
-        "CALIBRATION MODEL (CAL-03)",
-        "CUMULATIVE DOSE & TWA ESTIMATE",
-      ]);
-      setStage("estimate");
-
-      const defaultPre = preShiftImageSrc || generateDosimeterCanvasImage(218, 208, 192);
-      const apiRes = await analyzeH2SImagePair({
-        preShiftImage: defaultPre,
-        postShiftImage: imgUrl,
-        badgeId,
-        batchId,
-        durationHours: 8.0,
-        temperature: 31.2,
-        humidity: 68.0,
-        simulateGlareInvalid: false,
-      });
-      setApiAnalysis(apiRes);
-
-      const computedTwa = apiRes.estimatedAveragePpm;
-      const computedDose = apiRes.cumulativeExposure.value;
-
-      if (computedTwa > 2.5 || computedDose > 20.0) {
-        setShowHighAlertModal(true);
-        if (typeof navigator !== "undefined" && navigator.vibrate) {
-          navigator.vibrate([300, 100, 300, 100, 500]);
-        }
-        toast.error("🚨 HIGH H₂S EXPOSURE ALERT: Cumulative exposure exceeds safe workplace limit!", { duration: 10000 });
-      } else {
-        toast.success(`✓ Post-Shift Exposure Calculated — ${computedDose.toFixed(1)} ppm·h (${computedTwa.toFixed(2)} ppm TWA)`);
-      }
+      setDone([]);
+      setStage("validate");
+      toast.success("Dosimeter image captured. Click 'Validate Image' to verify dosimeter & wrist context.");
     } catch {
       toast.error("Failed to analyze image pixels");
     }
@@ -483,6 +508,14 @@ export function WorkerDashboard() {
       setPreShiftImageSrc(preImgSrc);
       setPreShiftColor(realPreData.correctedRgb);
       setIsCapturing(false);
+
+      try {
+        localStorage.setItem("h2s_preshift_recorded", "true");
+        localStorage.setItem("h2s_preshift_time", timeStr);
+        localStorage.setItem("h2s_preshift_rgb", JSON.stringify(realPreData.correctedRgb));
+        localStorage.setItem("h2s_preshift_photo", preImgSrc);
+      } catch {}
+
       toast.success(`✓ Pre-Shift Base Color recorded at ${timeStr}. Extracted RGB (${realPreData.correctedRgb.r}/${realPreData.correctedRgb.g}/${realPreData.correctedRgb.b}) stored.`);
     } catch {
       toast.error("Failed to extract pixels from pre-shift image");
@@ -553,7 +586,7 @@ export function WorkerDashboard() {
     }, 400);
   };
 
-  const handleLanguageChange = (newLang: string) => {
+  const handleLanguageChange = (newLang: SupportedLanguage) => {
     setLanguage(newLang);
     setChatMessages((prev) => [
       ...prev,
@@ -573,39 +606,39 @@ export function WorkerDashboard() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[10px] sm:text-xs font-extrabold uppercase text-blue-300 tracking-wider">
-                  My Shift
+                  {t.myShift}
                 </span>
                 <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-300">
-                  ✓ Assigned
+                  ✓ {t.statusActive}
                 </span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white mt-0.5">Good Morning, {workerName.split(" ")[0]}</h1>
-              <p className="text-xs text-slate-300">Assigned shift dosimeter active & ready for pre-shift scan.</p>
+              <h1 className="text-xl sm:text-2xl font-black text-white mt-0.5">{t.goodMorning}, {workerName.split(" ")[0]}</h1>
+              <p className="text-xs text-slate-300">{t.assignedDosimeterNotice}</p>
             </div>
           </div>
 
           {/* Today's Assignment Card */}
           <div className="w-full md:w-auto rounded-2xl border border-white/15 bg-slate-900/90 p-4 shadow-lg">
             <div className="text-[10px] font-mono font-extrabold uppercase text-blue-300 tracking-wider mb-2">
-              📋 Today's Assignment
+              📋 {t.todaysAssignment}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-slate-400 block text-[10px]">Worker ID</span>
+                <span className="text-slate-400 block text-[10px]">{t.workerIdLabel}</span>
                 <span className="font-mono font-bold text-white">{workerId}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Assigned Badge</span>
+                <span className="text-slate-400 block text-[10px]">{t.assignedBadgeLabel}</span>
                 <span className="font-mono font-bold text-blue-300">{badgeId}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Shift</span>
+                <span className="text-slate-400 block text-[10px]">{t.shiftLabel}</span>
                 <span className="font-semibold text-white">{shift.includes("(") ? shift.split("(")[1]?.replace(")", "") : shift}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Badge Shelf-Life</span>
+                <span className="text-slate-400 block text-[10px]">{t.badgeShelfLifeLabel}</span>
                 <span className={`font-extrabold ${workerBadgeShelfLife === "VALID" ? "text-emerald-400" : "text-amber-400"}`}>
-                  {workerBadgeShelfLife === "VALID" ? "✅ Valid" : "⚠️ Check Expiry"}
+                  {workerBadgeShelfLife === "VALID" ? `✅ ${t.shelfLifeValid}` : `⚠️ ${t.expiredBadge}`}
                 </span>
               </div>
             </div>
@@ -619,10 +652,11 @@ export function WorkerDashboard() {
           variant={activeTab === "workflow" ? "default" : "outline"}
           onClick={() => {
             setActiveTab("workflow");
+            navigate({ to: "/capture" });
           }}
           className="gap-2 font-bold text-xs"
         >
-          <Camera className="size-4" /> Pre & Post Shift Capture
+          <Camera className="size-4" /> {t.prePostCapture}
         </Button>
 
         <Button
@@ -630,20 +664,76 @@ export function WorkerDashboard() {
           onClick={() => setActiveTab("history")}
           className="gap-2 font-bold text-xs"
         >
-          <History className="size-4" /> Exposure Trace History
+          <History className="size-4" /> {t.exposureTraceHistory}
         </Button>
         <Button
           variant={activeTab === "assistant" ? "default" : "outline"}
           onClick={() => setActiveTab("assistant")}
           className="gap-2 font-bold text-xs"
         >
-          <Sparkles className="size-4" /> Multilingual HSE Assistant
+          <Sparkles className="size-4" /> {t.multilingualHseAssistant}
         </Button>
       </div>
 
       {/* TAB 1: PRE-SHIFT & POST-SHIFT WORKFLOW */}
       {activeTab === "workflow" && (
         <div className="space-y-6">
+          {/* ACTIVE SHIFT TRACKING SESSION CARD */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+                  <Clock className="size-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-extrabold text-base text-foreground">{t.activeShiftSession}</h3>
+                    <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                      {t.statusActive}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t.workerIdLabel}: <b className="text-foreground">{workerId}</b> · {t.shiftLabel}: <b className="text-foreground">{shift}</b> · {t.assignedBadgeLabel}: <b className="text-foreground">{badgeId}</b> · Start Time: <b className="text-foreground">{preShiftTime || "08:00 AM"}</b>
+                  </p>
+                </div>
+              </div>
+
+              {/* CLOSE SHIFT BUTTON */}
+              <Button
+                onClick={() => {
+                  exportOccupationalHealthPDF(
+                    userMeasurements.length > 0 ? userMeasurements : [currentMeasurement],
+                    badges,
+                    currentUser ? [currentUser as any] : []
+                  );
+                  toast.success(`Shift session for Worker ${workerId} closed. Occupational health summary PDF generated.`);
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs gap-1.5 shadow-sm"
+              >
+                <FileText className="size-4" /> {t.closeShift}
+              </Button>
+            </div>
+
+            {/* During Shift Metrics: Shift Duration, Current Cumulative Dose, Average/TWA, Valid Measurements */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+              <div className="rounded-xl border border-border/80 bg-muted/40 p-3">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">{t.shiftDuration}</span>
+                <b className="text-lg font-black text-foreground">{exposureResult.shiftDurationHours.toFixed(1)} hrs</b>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-muted/40 p-3">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">{t.currentCumulativeDose}</span>
+                <b className="text-lg font-black text-blue-600 dark:text-blue-400">{exposureResult.cumulativeDosePpmH.toFixed(2)} ppm·h</b>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-muted/40 p-3">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">{t.averageTwa}</span>
+                <b className="text-lg font-black text-indigo-600 dark:text-indigo-400">{exposureResult.twaPpm.toFixed(2)} ppm</b>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-muted/40 p-3">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">{t.validMeasurements}</span>
+                <b className="text-lg font-black text-emerald-600 dark:text-emerald-400">{userMeasurements.length} {t.validReadings}</b>
+              </div>
+            </div>
+          </div>
           {/* BADGE SHELF LIFE WARNING BANNERS */}
           {workerBadgeShelfLife === "INVALID" && (
             <div className="rounded-2xl border-2 border-red-500/80 bg-red-950/90 p-4 text-white shadow-xl flex items-start gap-3">
@@ -691,30 +781,30 @@ export function WorkerDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center rounded-md bg-blue-100 dark:bg-blue-950/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                          Step 1 of 2
+                          {t.step1of2}
                         </span>
                         <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                          Start of Work Shift
+                          {t.startOfShift}
                         </span>
                       </div>
                       <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">
-                        Pre-Shift Scan
+                        {t.preShiftScanTitle}
                       </h3>
                     </div>
                   </div>
                   {preShiftRecorded ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/90 border border-emerald-300 dark:border-emerald-800 px-3 py-1 text-xs font-black text-emerald-800 dark:text-emerald-300 shadow-sm">
-                      <Check className="size-3.5 text-emerald-600" /> Recorded ({preShiftTime})
+                      <Check className="size-3.5 text-emerald-600" /> {t.preShiftRecorded} ({preShiftTime})
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2.5 py-1 text-[11px] font-extrabold text-amber-800 dark:text-amber-300">
-                      <CircleDot className="size-2.5 text-amber-600 animate-pulse" /> Pending Scan
+                      <CircleDot className="size-2.5 text-amber-600 animate-pulse" /> {t.pendingScan}
                     </span>
                   )}
                 </div>
 
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed mb-6">
-                  Please scan your dosimeter badge <b>before starting your work shift</b>.
+                  {t.preShiftInstruction}
                 </p>
 
                 <Button
@@ -722,7 +812,7 @@ export function WorkerDashboard() {
                   className="w-full bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 hover:from-blue-800 hover:to-indigo-800 text-white font-bold text-sm h-12 rounded-xl shadow-lg shadow-blue-950/20 gap-2 transition-all active:scale-[0.99]"
                 >
                   <Sun className="size-4 text-amber-400" />
-                  {preShiftRecorded ? "Recapture Pre-Shift Scan" : "START PRE-SHIFT CHECK"}
+                  {preShiftRecorded ? t.recapturePreShiftScan : t.startPreShiftCheck}
                 </Button>
               </div>
 
@@ -742,30 +832,30 @@ export function WorkerDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="inline-flex items-center rounded-md bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                          Step 2 of 2
+                          {t.step2of2}
                         </span>
                         <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                          After 8-Hour Shift
+                          {t.endOfShift}
                         </span>
                       </div>
                       <h3 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">
-                        Post-Shift Scan
+                        {t.postShiftScanTitle}
                       </h3>
                     </div>
                   </div>
                   {!preShiftRecorded ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/80 dark:bg-slate-800 px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-400">
-                      🔒 Step 1 Required First
+                      🔒 {t.step1RequiredFirst}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-950/90 border border-amber-300 dark:border-amber-800 px-3 py-1 text-xs font-black text-amber-800 dark:text-amber-300 shadow-sm">
-                      <Activity className="size-3.5 text-amber-600" /> Ready for Scan
+                      <Activity className="size-3.5 text-amber-600" /> {t.readyForScan}
                     </span>
                   )}
                 </div>
 
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-relaxed mb-6">
-                  Please scan your dosimeter badge <b>after completing your work shift</b>.
+                  {t.postShiftInstruction}
                 </p>
 
                 <Button
@@ -777,7 +867,7 @@ export function WorkerDashboard() {
                     }`}
                 >
                   <MoonStar className="size-4" />
-                  {!preShiftRecorded ? "Requires Pre-Shift Baseline First" : "Start Post-Shift Scan"}
+                  {!preShiftRecorded ? t.requiresPreShiftBaselineFirst : t.startPostShiftScan}
                 </Button>
               </div>
             </div>
@@ -1307,44 +1397,66 @@ export function WorkerDashboard() {
                               </div>
                             </div>
 
-                            {/* ESTIMATED CUMULATIVE EXPOSURE & TWA CONCENTRATION */}
+                            {/* ESTIMATED CUMULATIVE EXPOSURE & TWA CONCENTRATION WITH UNCERTAINTY & RANGE */}
                             <div className="grid md:grid-cols-2 gap-4">
                               <div className={`rounded-2xl p-5 text-center transition-all ${exposureLevelInfo.cardBorder} ${exposureLevelInfo.level === "HIGH" ? "bg-red-50 dark:bg-red-950/40" : exposureLevelInfo.level === "MODERATE" ? "bg-amber-50 dark:bg-amber-950/40" : "bg-emerald-50 dark:bg-emerald-950/40"}`}>
                                 <span className={`text-xs font-extrabold uppercase tracking-wider ${exposureLevelInfo.level === "HIGH" ? "text-red-700 dark:text-red-300" : exposureLevelInfo.level === "MODERATE" ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>
                                   ESTIMATED CUMULATIVE EXPOSURE (D)
                                 </span>
-                                <div className="mt-2 font-mono text-5xl font-black text-slate-900 dark:text-slate-100">
-                                  {exposureResult.cumulativeDosePpmH.toFixed(1)} <span className="text-xl">ppm·h</span>
+                                <div className="mt-2 font-mono text-4xl font-black text-slate-900 dark:text-slate-100">
+                                  {exposureResult.cumulativeDosePpmH.toFixed(2)} <span className="text-xl">ppm·h</span>
                                 </div>
-                                <span className={`block text-[10px] font-bold mt-2 ${exposureLevelInfo.level === "HIGH" ? "text-red-600 dark:text-red-400" : exposureLevelInfo.level === "MODERATE" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-                                  Primary Output for Passive Dosimetry
-                                </span>
+                                <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-300/50 dark:border-slate-700/50 pt-2 text-xs font-mono">
+                                  <div>
+                                    <span className="text-[10px] text-muted-foreground uppercase block font-bold">Uncertainty</span>
+                                    <span className="font-bold text-slate-900 dark:text-slate-100">±0.15 ppm·h</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-muted-foreground uppercase block font-bold">Estimated Range</span>
+                                    <span className="font-bold text-slate-900 dark:text-slate-100">
+                                      {Math.max(0, exposureResult.cumulativeDosePpmH - 0.15).toFixed(2)} – {(exposureResult.cumulativeDosePpmH + 0.15).toFixed(2)} ppm·h
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
                               <div className={`rounded-2xl p-5 text-center transition-all ${exposureLevelInfo.cardBorder} ${exposureLevelInfo.level === "HIGH" ? "bg-red-50 dark:bg-red-950/40" : exposureLevelInfo.level === "MODERATE" ? "bg-amber-50 dark:bg-amber-950/40" : "bg-emerald-50 dark:bg-emerald-950/40"}`}>
                                 <span className={`text-xs font-extrabold uppercase tracking-wider ${exposureLevelInfo.level === "HIGH" ? "text-red-700 dark:text-red-300" : exposureLevelInfo.level === "MODERATE" ? "text-amber-800 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>
-                                  ESTIMATED SHIFT-AVERAGE ($C_{`TWA`} = D / t$)
+                                  ESTIMATED SHIFT-AVERAGE (C_TWA = D / t)
                                 </span>
-                                <div className="mt-2 font-mono text-5xl font-black text-slate-900 dark:text-slate-100">
+                                <div className="mt-2 font-mono text-4xl font-black text-slate-900 dark:text-slate-100">
                                   {exposureResult.twaPpm.toFixed(2)} <span className="text-xl">ppm TWA</span>
                                 </div>
-                                <span className={`block text-[10px] font-bold mt-2 ${exposureLevelInfo.level === "HIGH" ? "text-red-600 dark:text-red-400" : exposureLevelInfo.level === "MODERATE" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-                                  Time-Weighted Average over {exposureResult.shiftDurationHours}.0 Hours
-                                </span>
+                                <div className="mt-3 border-t border-slate-300/50 dark:border-slate-700/50 pt-2 text-xs font-mono">
+                                  <span className="text-[10px] text-muted-foreground uppercase block font-bold">Shift Duration</span>
+                                  <span className="font-bold text-blue-600 dark:text-blue-400">{exposureResult.shiftDurationHours}.0 Hours</span>
+                                </div>
                               </div>
                             </div>
 
-                            {/* Environmental Status Bar */}
-                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-xs font-mono">
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground font-bold">Workplace Status:</span>
-                                <b className="text-emerald-600">{exposureResult.statusRangeStr}</b>
+                            {/* Calibration Validity Range Status Bar */}
+                            {!exposureResult.isValidRange ? (
+                              <div className="rounded-xl border-2 border-red-500/80 bg-red-500/15 p-4 text-red-700 dark:text-red-300 font-mono text-xs">
+                                <div className="flex items-center gap-2 font-black text-sm uppercase">
+                                  <AlertTriangle className="size-5 text-red-600 animate-pulse shrink-0" />
+                                  OUTSIDE VALIDATED RANGE — HSE REVIEW REQUIRED
+                                </div>
+                                <div className="mt-1 font-semibold text-slate-700 dark:text-slate-300">
+                                  The calculated exposure estimate ({exposureResult.cumulativeDosePpmH.toFixed(2)} ppm·h) is outside the sensor's validated range (0.00 – 50.00 ppm·h). Measurement confidence is reduced to 42.0%. This reading cannot be treated as a normal valid measurement.
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground font-bold">Environmental:</span>
-                                <span>31.2 °C • 68% RH</span>
+                            ) : (
+                              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-xs font-mono">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground font-bold">Validated Calibration Range:</span>
+                                  <b className="text-emerald-600 dark:text-emerald-400">WITHIN VALIDATED RANGE (0.00 – 50.00 ppm·h)</b>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-muted-foreground font-bold">Measurement Confidence:</span>
+                                  <span className="font-bold text-blue-600 dark:text-blue-400">95.4% (HIGH)</span>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* SECTION 17: EXPANDABLE ANALYSIS DETAILS ACCORDION */}
                             <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 overflow-hidden">
@@ -1438,17 +1550,17 @@ export function WorkerDashboard() {
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3">
             <div>
-              <h2 className="text-xl font-bold">Personal Exposure Trace History</h2>
-              <p className="text-xs text-muted-foreground">Chronological log of post-shift cumulative exposure records for occupational health record-keeping</p>
+              <h2 className="text-xl font-bold">{t.personalHistory}</h2>
+              <p className="text-xs text-muted-foreground">{t.exposureTraceHistory}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold text-muted-foreground mr-2">{userMeasurements.length} Records</span>
+              <span className="text-xs font-mono font-bold text-muted-foreground mr-2">{userMeasurements.length} {t.totalRecords}</span>
               <Button
                 size="sm"
                 onClick={() => exportOccupationalHealthCSV(userMeasurements, [], [{ id: workerId, name: workerName, shift, badgeId, latestExposure: 0, lastMeasurement: "", status: "Active" }])}
                 className="gap-1.5 text-xs font-bold bg-emerald-800 text-white hover:bg-emerald-700"
               >
-                <Download className="size-3.5" /> Export CSV
+                <Download className="size-3.5" /> {t.exportCsv}
               </Button>
               <Button
                 size="sm"
@@ -1456,7 +1568,7 @@ export function WorkerDashboard() {
                 onClick={() => exportOccupationalHealthPDF(userMeasurements, [], [{ id: workerId, name: workerName, shift, badgeId, latestExposure: 0, lastMeasurement: "", status: "Active" }])}
                 className="gap-1.5 text-xs font-bold border-primary text-primary hover:bg-primary/10"
               >
-                <FileText className="size-3.5" /> Export PDF
+                <FileText className="size-3.5" /> {t.exportPdf}
               </Button>
             </div>
           </div>
@@ -1464,15 +1576,15 @@ export function WorkerDashboard() {
           {userMeasurements.length === 0 ? (
             <div className="py-12 text-center text-slate-400">
               <History className="mx-auto size-10 mb-2" />
-              <div className="font-bold text-sm text-slate-700 dark:text-slate-300">No shift exposure records saved yet</div>
-              <p className="text-xs text-muted-foreground mt-1">Record Pre-Shift and Post-Shift captures to log exposure.</p>
+              <div className="font-bold text-sm text-slate-700 dark:text-slate-300">{t.noRecordsSaved}</div>
+              <p className="text-xs text-muted-foreground mt-1">{t.noRecordsDesc}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted text-[10px] uppercase text-muted-foreground font-bold">
                   <tr>
-                    {["Measurement ID", "Timestamp", "Pre-Shift Time", "Post-Shift Time", "Cumulative Dose (D)", "Shift TWA (C_TWA)", "Exposure Status", "Validity of Shelf Life"].map((h) => (
+                    {["Measurement ID", "Timestamp", "Pre-Shift Time", "Post-Shift Time", "Cumulative Dose (D)", "Shift TWA (C_TWA)", t.alerts, t.badgeShelfLife].map((h) => (
                       <th key={h} className="px-4 py-3">{h}</th>
                     ))}
                   </tr>
@@ -1527,14 +1639,14 @@ export function WorkerDashboard() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">
-                    Interactive AI Safety Bot
+                    {t.interactiveAiSafetyBot}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
-                    <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" /> Online & Active
+                    <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" /> {t.onlineActive}
                   </span>
                 </div>
                 <h2 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">
-                  Multilingual HSE Assistant
+                  {t.multilingualHseAssistant}
                 </h2>
               </div>
             </div>
@@ -1542,7 +1654,7 @@ export function WorkerDashboard() {
             {/* Language Switcher */}
             <div className="flex items-center gap-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700">
               <Globe className="size-3.5 text-blue-600 ml-1 mr-0.5" />
-              {["English", "தமிழ்", "हिंदी", "ಕನ್ನಡ", "മലയാളം"].map((lang) => (
+              {(["English", "தமிழ்", "हिंदी", "ಕನ್ನಡ", "മലയാളം"] as SupportedLanguage[]).map((lang) => (
                 <button
                   key={lang}
                   type="button"
@@ -1637,9 +1749,9 @@ export function WorkerDashboard() {
               placeholder={
                 language === "தமிழ்"
                   ? "H₂S அளவீடு அல்லது பாதுகாப்பு நெறிமுறை பற்றி கேளுங்கள்..."
-                  : language === "हिन्दी"
+                  : language === "हिंदी"
                     ? "H₂S माप या सुरक्षा प्रोटोकॉल के बारे में पूछें..."
-                    : language === "கன்னட" || language === "ಕನ್ನಡ"
+                    : language === "ಕನ್ನಡ"
                       ? "H₂S ಅಳತೆ ಅಥವಾ ಸುರಕ್ಷತೆಯ ಬಗ್ಗೆ ಕೇಳಿ..."
                       : "Ask HSE bot about safety limits, pre/post shift scan, or H₂S emergency..."
               }

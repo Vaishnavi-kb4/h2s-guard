@@ -11,6 +11,9 @@ import {
   getSuggestedQuestions,
 } from "@/services/multilingualAssistant";
 
+import { useApp } from "@/context/AppContext";
+import { translations, type SupportedLanguage } from "@/lib/translations";
+
 export const Route = createFileRoute("/assistant")({
   head: () => ({
     meta: [
@@ -22,7 +25,8 @@ export const Route = createFileRoute("/assistant")({
 });
 
 function AssistantPage() {
-  const [language, setLanguage] = useState<string>("English");
+  const { language, setLanguage } = useApp();
+  const t = translations[language] || translations.English;
   const [input, setInput] = useState("");
 
   const latestMeas = measurements[0];
@@ -35,10 +39,10 @@ function AssistantPage() {
   };
 
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([
-    { role: "assistant", text: getGreetingMessage("English") },
+    { role: "assistant", text: getGreetingMessage(language) },
   ]);
 
-  const handleLanguageChange = (newLang: string) => {
+  const handleLanguageChange = (newLang: SupportedLanguage) => {
     setLanguage(newLang);
     setMessages((prev) => [
       ...prev,
@@ -76,7 +80,7 @@ function AssistantPage() {
             </div>
 
             <div className="flex gap-1.5 text-xs font-bold bg-muted p-1 rounded-xl">
-              {["English", "தமிழ்", "हिन्दी", "கன்னட"].map((lang) => (
+              {(["English", "தமிழ்", "हिंदी", "ಕನ್ನಡ", "മലയാളം"] as SupportedLanguage[]).map((lang) => (
                 <button
                   key={lang}
                   type="button"
@@ -127,10 +131,12 @@ function AssistantPage() {
               placeholder={
                 language === "தமிழ்"
                   ? "H₂S அளவீடு பற்றி கேளுங்கள்..."
-                  : language === "हिन्दी"
+                  : language === "हिंदी"
                   ? "H₂S माप के बारे में पूछें..."
-                  : language === "கன்னட" || language === "ಕನ್ನಡ"
+                  : language === "ಕನ್ನಡ"
                   ? "H₂S ಅಳತೆಯ ಬಗ್ಗೆ ಕೇಳಿ..."
+                  : language === "മലയാളം"
+                  ? "H₂S അളവിനെക്കുറിച്ച് ചോദിക്കുക..."
                   : "Ask about a measurement or safety procedures..."
               }
               className="h-11 text-xs"

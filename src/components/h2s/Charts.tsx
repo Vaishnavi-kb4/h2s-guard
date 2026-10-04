@@ -29,13 +29,7 @@ export function ExposureChart({ data }: { data?: { time: string; exposure: numbe
           exposure: m.exposure ?? 0,
         }));
     }
-    return [
-      { time: "08:00 AM", exposure: 0.0 },
-      { time: "10:00 AM", exposure: 2.1 },
-      { time: "11:30 AM", exposure: 8.8 },
-      { time: "11:45 AM", exposure: 12.6 },
-      { time: "11:58 AM", exposure: 49.9 },
-    ];
+    return [];
   }, [data, measurements]);
 
   return (
@@ -84,10 +78,6 @@ export function ShiftDistributionChart() {
         else if (s.includes("Evening")) eveningSum += val;
         else nightSum += val;
       });
-    } else {
-      morningSum = 129.9;
-      eveningSum = 5.0;
-      nightSum = 1.4;
     }
 
     return [

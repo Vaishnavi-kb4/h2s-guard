@@ -1,10 +1,10 @@
-// Persistent Local Database (IndexedDB) for HSG Guard Trace
-import type { UserAccount, Measurement } from "@/types/h2s";
+// Persistent Database Integration (PostgreSQL + Fallback Cache) for HSG Guard Trace
+import type { UserAccount } from "@/types/h2s";
+import { saveUserToPostgres } from "./postgresClient";
 
 const DB_NAME = "H2SGuardDB";
 const DB_VERSION = 1;
 const USERS_STORE = "users";
-const MEASUREMENTS_STORE = "measurements";
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -20,9 +20,6 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(USERS_STORE)) {
         db.createObjectStore(USERS_STORE, { keyPath: "id" });
       }
-      if (!db.objectStoreNames.contains(MEASUREMENTS_STORE)) {
-        db.createObjectStore(MEASUREMENTS_STORE, { keyPath: "id" });
-      }
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -30,19 +27,20 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-// Save or Update User in IndexedDB Database
+// Save User to PostgreSQL & local DB fallback
 export async function saveUserToDB(user: UserAccount): Promise<void> {
+  saveUserToPostgres(user);
   try {
     const db = await openDB();
     const tx = db.transaction(USERS_STORE, "readwrite");
     const store = tx.objectStore(USERS_STORE);
     store.put(user);
   } catch (err) {
-    console.error("IndexedDB saveUser error:", err);
+    console.error("Local DB saveUser error:", err);
   }
 }
 
-// Get All Users from IndexedDB Database
+// Get Users from Local DB fallback
 export async function getUsersFromDB(): Promise<UserAccount[]> {
   try {
     const db = await openDB();

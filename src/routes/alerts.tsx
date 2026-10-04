@@ -91,11 +91,40 @@ function AlertsPage() {
                     </div>
 
                     <p className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.subject}</p>
-                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{a.reason}</p>
+                    <div className="mt-1.5 rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-900 dark:text-red-200 font-medium">
+                      <b className="font-bold text-[10px] uppercase block text-muted-foreground mb-0.5">Exact Flag Reason:</b>
+                      {a.reason}
+                    </div>
 
-                    <Button className="mt-4 text-xs font-bold" variant={isHighAlert ? "default" : "outline"} size="sm" onClick={() => setSelected(a)}>
-                      <ShieldAlert className="size-3.5 mr-1" /> Review Alert & Evidence
-                    </Button>
+                    {/* 4 Working Action Buttons: Review, Approve, Reject, Request Recapture */}
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Button className="text-xs font-bold" variant={isHighAlert ? "default" : "outline"} size="sm" onClick={() => setSelected(a)}>
+                        <ShieldAlert className="size-3.5 mr-1 text-primary" /> Review Evidence
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => review(a.id, "Approved")}
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold"
+                      >
+                        <Check className="size-3.5 mr-1" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => review(a.id, "Rejected")}
+                        className="text-xs font-bold"
+                      >
+                        <X className="size-3.5 mr-1" /> Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => review(a.id, "Recapture Requested")}
+                        className="text-xs font-bold"
+                      >
+                        <RotateCcw className="size-3.5 mr-1" /> Request Recapture
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Panel>
@@ -114,8 +143,10 @@ function AlertsPage() {
           </DialogHeader>
 
           <div className="rounded-2xl border border-red-200 bg-red-50/50 dark:bg-red-950/40 p-4 space-y-2 text-xs my-2">
-            <div className="font-bold text-red-900 dark:text-red-300">Hazard Exception Detail:</div>
-            <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{selected?.reason}</p>
+            <div className="font-extrabold text-red-900 dark:text-red-300 uppercase tracking-wider text-[10px]">
+              Exact Exception Reason:
+            </div>
+            <p className="text-slate-800 dark:text-slate-200 font-semibold leading-relaxed">{selected?.reason}</p>
           </div>
 
           <DialogFooter className="gap-2 sm:space-x-0">

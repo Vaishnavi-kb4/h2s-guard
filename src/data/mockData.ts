@@ -1,10 +1,9 @@
 import type { BadgeRecord, Measurement, NotificationItem, ReviewAlert, Worker } from "@/types/h2s";
 
-// Default state starts 100% clean (0 demo records)
+export const alerts: ReviewAlert[] = [];
 export const workers: Worker[] = [];
 export const badges: BadgeRecord[] = [];
 export const measurements: Measurement[] = [];
-export const alerts: ReviewAlert[] = [];
 export const notifications: NotificationItem[] = [];
 export const exposureSeries: { time: string; exposure: number; valid: number }[] = [];
 export const calibrationPoints = [
@@ -16,7 +15,6 @@ export const calibrationPoints = [
   { known: 5, response: 40 },
 ];
 
-// Clean empty arrays for production use (No demo data)
 export const sampleWorkers: Worker[] = [];
 export const sampleBadges: BadgeRecord[] = [];
 export const sampleMeasurements: Measurement[] = [];

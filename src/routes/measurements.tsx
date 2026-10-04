@@ -9,6 +9,7 @@ import { useApp } from "@/context/AppContext";
 import type { Measurement } from "@/types/h2s";
 import { exportOccupationalHealthCSV, exportOccupationalHealthPDF } from "@/lib/structuredExport";
 import { evaluateBadgeShelfLife } from "@/lib/badgeUtils";
+import { translations } from "@/lib/translations";
 
 export const Route = createFileRoute("/measurements")({
   head: () => ({
@@ -21,19 +22,35 @@ export const Route = createFileRoute("/measurements")({
 });
 
 function MeasurementsPage() {
-  const { measurements, badges, workers } = useApp();
+  const { currentUser, measurements, badges, workers, language } = useApp();
+  const t = translations[language] || translations.English;
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const [selected, setSelected] = useState<Measurement | null>(null);
 
+  // Role-based scoping: Workers only see their own measurements; Officers see all measurements
+  const userRoleMeasurements = useMemo(() => {
+    const isWorker = currentUser?.role === "worker";
+    if (isWorker && currentUser?.id) {
+      const cId = currentUser.id.trim().toLowerCase();
+      const cBadge = (currentUser.badgeId || "").trim().toLowerCase();
+      return measurements.filter((m) => {
+        const mWorker = (m.workerId || (m as any).worker_id || "").toString().trim().toLowerCase();
+        const mBadge = (m.badgeId || (m as any).badge_id || "").toString().trim().toLowerCase();
+        return (mWorker && mWorker === cId) || (mBadge && cBadge && mBadge === cBadge);
+      });
+    }
+    return measurements;
+  }, [measurements, currentUser]);
+
   const shown = useMemo(
     () =>
-      measurements.filter(
+      userRoleMeasurements.filter(
         (m) =>
-          (m.id + m.workerId + m.badgeId).toLowerCase().includes(q.toLowerCase()) &&
+          (m.id + (m.workerId || "") + (m.badgeId || "")).toLowerCase().includes(q.toLowerCase()) &&
           (status === "ALL" || m.status === status)
       ),
-    [measurements, q, status]
+    [userRoleMeasurements, q, status]
   );
 
   const handleExportCSV = () => {
@@ -47,23 +64,23 @@ function MeasurementsPage() {
   return (
     <>
       <PageHeader
-        title="Measurements & Dosimetry History"
-        subtitle="Search, inspect, and export structured occupational health exposure records (Worker ID, Timestamp, Shift, Dose Estimate, Expiry Status)."
+        title={currentUser?.role === "worker" ? t.personalHistory : `${t.measurements} & Dosimetry History`}
+        subtitle={currentUser?.role === "worker" ? `Personal exposure trace history records for ${currentUser.name || currentUser.id} (Worker ID: ${currentUser.id}).` : "Search, inspect, and export structured occupational health exposure records (Worker ID, Timestamp, Shift, Dose Estimate, Expiry Status)."}
       />
 
       <WorkflowStepper current={5} />
 
       <Panel>
         <PanelHeader
-          title="Measurement History"
-          subtitle={`${shown.length} records match filter`}
+          title={`${t.measurements} History`}
+          subtitle={`${shown.length} ${t.totalRecords}`}
           action={
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleExportCSV} className="gap-1.5 text-xs font-bold bg-emerald-800 text-white hover:bg-emerald-700">
-                <FileSpreadsheet className="size-3.5" /> Structured CSV
+                <FileSpreadsheet className="size-3.5" /> {t.exportCsv}
               </Button>
               <Button size="sm" variant="outline" onClick={handleExportPDF} className="gap-1.5 text-xs font-bold border-primary text-primary hover:bg-primary/10">
-                <FileText className="size-3.5" /> Structured PDF
+                <FileText className="size-3.5" /> {t.exportPdf}
               </Button>
             </div>
           }
@@ -93,7 +110,7 @@ function MeasurementsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-muted text-[10px] uppercase font-bold text-muted-foreground">
               <tr>
-                {["Measurement ID", "Worker ID", "Badge ID", "Timestamp", "Shift", "Dose Estimate", "Badge Expiry", "Status", "Actions"].map((h) => (
+                {["Measurement ID", "Worker ID", "Badge ID", "Timestamp", "Shift", "Dose Estimate", "Badge Expiry", "Status", "Sync Status", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3">
                     {h}
                   </th>
@@ -103,7 +120,7 @@ function MeasurementsPage() {
             <tbody>
               {shown.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-muted-foreground text-xs">
+                  <td colSpan={10} className="p-8 text-center text-muted-foreground text-xs">
                     No measurement records match the current filter.
                   </td>
                 </tr>
@@ -135,6 +152,9 @@ function MeasurementsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={statusToDisplay} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={m.syncStatus || "SYNCED"} />
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">

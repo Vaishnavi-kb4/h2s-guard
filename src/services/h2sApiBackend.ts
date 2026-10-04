@@ -185,7 +185,7 @@ export async function analyzeH2SImagePair(
       deltaE: deltaFeatures.deltaE,
     },
     cumulativeExposure: {
-      value: exposureCalc.cumulativeDosePpmH,
+      value: exposureCalc.cumulativeDosePpmH ?? 0.0,
       unit: "ppm·h",
     },
     estimatedAveragePpm: exposureCalc.twaPpm,

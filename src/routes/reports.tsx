@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, Download, FileText, RefreshCw, FileSpreadsheet, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ExposureChart, ShiftDistributionChart } from "@/components/h2s/Charts";
 import { MetricCard, PageHeader, Panel, PanelHeader } from "@/components/h2s/common";
 import { useApp } from "@/context/AppContext";
 import { exportOccupationalHealthCSV, exportOccupationalHealthPDF } from "@/lib/structuredExport";
+import { translations } from "@/lib/translations";
 
 export const Route = createFileRoute("/reports")({
   head: () => ({
@@ -19,21 +20,37 @@ export const Route = createFileRoute("/reports")({
 });
 
 function ReportsPage() {
-  const { measurements, badges, workers } = useApp();
+  const { currentUser, measurements, badges, workers, language } = useApp();
+  const t = translations[language] || translations.English;
   const [generated, setGenerated] = useState(false);
 
+  // Role-based scoping: Workers only export/view their own measurements; Officers export/view all
+  const userRoleMeasurements = useMemo(() => {
+    const isWorker = currentUser?.role === "worker";
+    if (isWorker && currentUser?.id) {
+      const cId = currentUser.id.trim().toLowerCase();
+      const cBadge = (currentUser.badgeId || "").trim().toLowerCase();
+      return measurements.filter((m) => {
+        const mWorker = (m.workerId || (m as any).worker_id || "").toString().trim().toLowerCase();
+        const mBadge = (m.badgeId || (m as any).badge_id || "").toString().trim().toLowerCase();
+        return (mWorker && mWorker === cId) || (mBadge && cBadge && mBadge === cBadge);
+      });
+    }
+    return measurements;
+  }, [measurements, currentUser]);
+
   const handleExportCSV = () => {
-    exportOccupationalHealthCSV(measurements, badges, workers);
+    exportOccupationalHealthCSV(userRoleMeasurements, badges, workers);
   };
 
   const handleExportPDF = () => {
-    exportOccupationalHealthPDF(measurements, badges, workers);
+    exportOccupationalHealthPDF(userRoleMeasurements, badges, workers);
   };
 
   return (
     <>
       <PageHeader
-        title="Occupational Health Exposure Reports"
+        title={`${t.reports} — Occupational Health`}
         subtitle="Generate structured exposure logs containing Worker ID, Timestamps, Shift, Dose estimates, and Badge Expiry Status for compliance record-keeping."
       />
 
