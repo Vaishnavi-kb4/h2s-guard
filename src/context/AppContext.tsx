@@ -140,14 +140,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const savedLang = (localStorage.getItem("h2s_worker_language") || localStorage.getItem("h2s.language")) as SupportedLanguage;
       if (savedLang) setLanguageState(savedLang);
 
-      // Restore user session from temp LocalStorage cache if available
-      const savedCurrUserStr = localStorage.getItem("h2s.currentUser");
-      if (savedCurrUserStr) {
-        try {
-          const u = JSON.parse(savedCurrUserStr) as UserAccount;
-          if (u) setCurrentUser(u);
-        } catch {}
-      }
+      // Default to null on initial load so application always shows Login Gateway page first
+      setCurrentUser(null);
+      localStorage.removeItem("h2s.currentUser");
 
       // Step 1: Load offline store records immediately (works 100% without network)
       Promise.all([
